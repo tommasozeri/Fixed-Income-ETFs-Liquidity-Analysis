@@ -1,0 +1,8 @@
+# Regime-detection analysis (etf_liquidity_hmm.py / .ipynb)
+
+numpy
+pandas
+matplotlib
+scipy
+hmmlearn        # Gaussian HMM, Baum-Welch (EM) fitting
+yfinance        # real OHLCV data; not needed with --demo
