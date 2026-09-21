@@ -1,0 +1,10 @@
+# Liquidity-transformation analysis (satellite-analysis)
+# Install with: pip install -r requirements.txt
+
+numpy
+pandas
+matplotlib
+scipy
+nbformat
+nbclient        # to build+execute notebooks from the command line
+yfinance        # only needed for the real ETF-price comparison (DEMO = False)

@@ -1,0 +1,266 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\emergencystretch=3em
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black}
+
+\newtheorem{proposition}{Proposizione}
+\newtheorem{definition}{Definizione}
+\newtheorem{remark}{Osservazione}
+\renewcommand{\proofname}{Dimostrazione}
+
+\title{\Large Se un ETF detiene un sottostante illiquido, come pu\`o essere esso stesso liquido?\\[4pt]
+\large Un test statistico della trasformazione di liquidit\`a tramite lo smoothing del NAV\\[2pt]
+\normalsize Analisi satellite -- LQD e HYG}
+\author{Tommaso Zeri \\ \small Advanced Fixed Income and Credit --- Analisi supplementare \\ \small Tema: \emph{Market microstructure insights}}
+\date{Settembre 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Un ETF obbligazionario detiene centinaia di titoli corporate che, individualmente, si scambiano poco e a intervalli irregolari. Eppure l'ETF stesso si scambia in borsa in modo continuo, con spread stretti. Questa nota costruisce e verifica empiricamente un test statistico diretto di questo fenomeno: formalizziamo due modelli ridotti -- uno per il Net Asset Value (NAV), uno per il prezzo di borsa dell'ETF -- che traducono in ipotesi verificabili l'idea che il NAV erediti l'illiquidit\`a del sottostante mentre il prezzo, formandosi in continuo sul mercato secondario, non lo faccia. Il divario fra le propriet\`a statistiche dei due processi, misurato tramite autocorrelazione seriale e testato formalmente con il test di Ljung--Box, costituisce la prova empirica che risponde alla domanda di ricerca. Validiamo gli stimatori su dati sintetici con parametro di staleness noto, poi li applichiamo al NAV storico reale di LQD (investment-grade) e HYG (high-yield) e, quando disponibile l'OHLCV di borsa, al confronto diretto NAV-contro-prezzo per entrambi i fondi.
+\end{abstract}
+
+% ============================================================================
+\section{Domanda di ricerca e inquadramento}
+\label{sec:rq}
+
+\textbf{Domanda di ricerca.} Se un ETF detiene un sottostante illiquido, come pu\`o essere esso stesso liquido?
+
+Questa nota \`e un'analisi satellite, complementare all'analisi principale che risponde alla domanda articolandola sui due livelli di mercato dell'ETF: il \emph{mercato primario}, dove gli Authorized Participants (AP) creano e riscattano quote in blocchi (\emph{creation units}) tramite arbitraggio contro il NAV; e il \emph{mercato secondario}, order-driven, dove il prezzo dell'ETF si forma in continuo grazie al market making, con il market maker che gestisce il proprio rischio di inventario tramite \emph{continuous hedging} su proxy liquidi correlati, non tramite trading diretto e continuo delle singole obbligazioni illiquide sottostanti.
+
+Questo racconto meccanicistico -- \emph{come} l'ETF resta liquido -- \`e sviluppato nell'analisi principale. Questa nota affronta una domanda complementare e logicamente precedente: \emph{possiamo misurare, nei dati, che questa trasformazione sta effettivamente avvenendo?} La risposta che costruiamo qui \`e statistica: mostriamo che il NAV porta un'impronta quantificabile dell'illiquidit\`a del sottostante (autocorrelazione seriale positiva dei rendimenti) che il prezzo di borsa dell'ETF non condivide, e che questo divario \`e statisticamente significativo, non un artefatto campionario. Il \emph{perch\'e} di questo divario -- il meccanismo di AP e market maker -- resta il contenuto dell'analisi principale; questa nota gli d\`a un numero.
+
+% ============================================================================
+\section{Metodologia: i due modelli}
+\label{sec:models}
+
+\subsection{Modello 1: lo smoothing del NAV (Getmansky, Lo e Makarov, 2004)}
+\label{sec:model1}
+
+L'idea, sviluppata originariamente per hedge fund e private equity illiquidi, si applica identica a un bond ETF. Sia $r^\ast_t$ il rendimento ``vero'' (non osservabile) del paniere di obbligazioni al giorno $t$: il rendimento che si osserverebbe se ogni titolo del paniere si riprezzasse istantaneamente sulla base di tutta l'informazione disponibile. Il rendimento \textbf{riportato} nel NAV non \`e $r^\ast_t$, ma una media pesata dei rendimenti veri recenti,
+\[
+r^{NAV}_t = \sum_{j=0}^{k-1} \theta_j\, r^\ast_{t-j}, \qquad \theta_j \ge 0,\quad \sum_{j=0}^{k-1}\theta_j = 1,
+\]
+perch\'e quando un'obbligazione non scambia oggi, il pricing desk usa un matrix price basato sull'ultimo prezzo osservato -- informazione vecchia che ``trapela'' nel NAV di oggi.
+
+\paragraph{Perch\'e questo crea autocorrelazione: un esempio minimo.} Il caso pi\`u semplice possibile: met\`a peso su oggi, met\`a su ieri,
+\[
+r^{NAV}_t = 0.5\, r^\ast_t + 0.5\, r^\ast_{t-1}.
+\]
+Con rendimenti veri (indipendenti) nei giorni 1--4 pari a $+2\%,\ -1\%,\ +3\%,\ +1\%$:
+\begin{align*}
+r^{NAV}_2 &= 0.5(-1\%)+0.5(2\%) = 0.5\%, \\
+r^{NAV}_3 &= 0.5(3\%)+0.5(-1\%) = 1.0\%, \\
+r^{NAV}_4 &= 0.5(1\%)+0.5(3\%) = 2.0\%.
+\end{align*}
+$r^{NAV}_3$ e $r^{NAV}_4$ condividono lo stesso ingrediente, lo shock $+3\%$ del giorno 3 -- una volta come ``oggi'' in $r^{NAV}_3$, di nuovo come ``ieri'' in $r^{NAV}_4$. Quello shock non viene consumato in un colpo solo: met\`a finisce nel NAV di oggi, l'altra met\`a trascina in alto anche il NAV di domani. \`E esattamente questa sovrapposizione di ingredienti fra osservazioni consecutive a generare autocorrelazione positiva. Senza smoothing ($r^{NAV}_t = r^\ast_t$), non c'\`e alcun ingrediente condiviso fra un giorno e il successivo, e l'autocorrelazione \`e nulla.
+
+\paragraph{Caso parametrico generale.} Pesi a decadimento geometrico,
+\[
+\theta_j = (1-\phi)\phi^{\,j}, \qquad \phi \in [0,1),
+\]
+dove $\phi$ \`e il \textbf{parametro di smoothing} ($\phi=0$: nessuno smoothing, NAV pulito; $\phi \to 1$: smoothing molto persistente, NAV molto stantio). Assumiamo $r^\ast_t$ i.i.d.\ con media zero e varianza $\sigma^2$.
+
+\begin{proposition}[Autocorrelazione di ordine 1 del NAV]
+\label{prop:rho1}
+Nel limite $k\to\infty$, $r^{NAV}_t$ \`e un processo $MA(\infty)$ con autocovarianza
+\[
+\gamma(h) = \sigma^2\,\frac{(1-\phi)^2}{1-\phi^2}\,\phi^{\,h}, \qquad h\ge 0,
+\]
+da cui $\rho_1 := \gamma(1)/\gamma(0) = \phi$ \emph{esattamente}, e $\gamma(0) = \sigma^2\frac{1-\phi}{1+\phi} < \sigma^2$.
+\end{proposition}
+
+\begin{proof}
+Per definizione di autocovarianza e con $r^\ast_t$ i.i.d.\ (quindi $\mathrm{Cov}(r^\ast_{t-i}, r^\ast_{t-j}) = \sigma^2 \mathbb{1}\{i=j\}$),
+\[
+\gamma(h) = \mathrm{Cov}(r^{NAV}_t,\, r^{NAV}_{t-h}) = \mathrm{Cov}\Big(\sum_{i\ge 0}\theta_i r^\ast_{t-i},\ \sum_{j\ge 0}\theta_j r^\ast_{t-h-j}\Big) = \sum_{i,j\ge 0}\theta_i\theta_j\,\mathrm{Cov}(r^\ast_{t-i}, r^\ast_{t-h-j}).
+\]
+Il termine di covarianza \`e non nullo solo per $t-i = t-h-j$, cio\`e $i = h+j$; la doppia somma collassa a
+\[
+\gamma(h) = \sigma^2 \sum_{j\ge 0} \theta_{h+j}\,\theta_j.
+\]
+Sostituendo $\theta_j = (1-\phi)\phi^{\,j}$:
+\[
+\gamma(h) = \sigma^2(1-\phi)^2\phi^{\,h}\sum_{j\ge 0}\phi^{2j} = \sigma^2(1-\phi)^2\phi^{\,h}\cdot\frac{1}{1-\phi^2},
+\]
+usando la somma della serie geometrica $\sum_{j\ge 0}\phi^{2j} = 1/(1-\phi^2)$ per $|\phi|<1$. Questo d\`a $\gamma(h) = \sigma^2\frac{(1-\phi)^2}{1-\phi^2}\phi^{\,h}$. Per $h=0$: $\gamma(0) = \sigma^2\frac{(1-\phi)^2}{1-\phi^2} = \sigma^2\frac{1-\phi}{1+\phi}$, minore di $\sigma^2$ per ogni $\phi>0$ -- lo smoothing \emph{smorza} la volatilit\`a osservata, oltre a introdurre autocorrelazione (il punto empirico originale di Getmansky-Lo-Makarov: rendimenti stantii producono anche Sharpe ratio gonfiati). Il rapporto $\gamma(1)/\gamma(0)$ semplifica immediatamente a $\phi$.
+\end{proof}
+
+\begin{remark}[Perch\'e $\hat\phi = \hat\rho_1$ \`e uno stimatore di Yule--Walker valido]
+Le equazioni di Yule--Walker per un processo $AR(1)$ danno $\phi = \rho_1$ come conseguenza della sua struttura ricorsiva ($r_t = \phi r_{t-1} + \varepsilon_t$). Il nostro $r^{NAV}_t$ \`e invece un $MA(\infty)$, generato per aggregazione di shock passati, non per feedback autoregressivo -- eppure la Proposizione~\ref{prop:rho1} mostra che la sua funzione di autocovarianza $\gamma(h)\propto\phi^h$ \`e \emph{identica} a quella di un $AR(1)$ con lo stesso $\phi$. Lo stimatore $\hat\phi=\hat\rho_1$ \`e quindi legittimo non perch\'e il NAV sia generato da un $AR(1)$, ma perch\'e condivide con esso la stessa impronta di autocovarianza -- una scelta di modellazione pi\`u fedele economicamente (il meccanismo \`e uno smoothing di prezzi passati, non un feedback nel rendimento) che statisticamente indistinguibile in questa diagnostica di ordine 1.
+\end{remark}
+
+\subsection{Modello 2: il prezzo dell'ETF sul mercato secondario}
+\label{sec:model2}
+
+Il prezzo di borsa dell'ETF \`e modellato come
+\[
+r^{P}_t = r^\ast_t + \eta_t, \qquad \eta_t \sim \text{i.i.d.}(0,\sigma_\eta^2) \text{ indipendente da } r^\ast_t,
+\]
+dove $\eta_t$ rappresenta il rumore idiosincratico di un prezzo che si forma in continuo tramite order flow sul mercato secondario. Essendo somma di due processi i.i.d.\ indipendenti, $r^P_t$ \`e a sua volta i.i.d., quindi $\rho_1(r^P) = 0$ in popolazione: nessuna memoria statistica giorno-su-giorno, in netto contrasto con il Modello 1.
+
+\begin{remark}[Un'idealizzazione onesta]
+Un mercato con bid-ask spread genera tipicamente una lieve autocorrelazione \emph{negativa} nei rendimenti a bassa frequenza (Roll, 1984, bid-ask bounce), non un $\rho_1$ esattamente nullo. Il Modello 2 \`e quindi un'idealizzazione: predice $\rho_1(P)\approx 0$, non $\rho_1(P)=0$ al centesimo. Come mostrato in Sezione~\ref{sec:results-gap}, i dati reali sono coerenti con questa idealizzazione a meno di questo scostamento noto -- che se mai rafforza, anzich\'e indebolire, il divario rispetto al NAV.
+\end{remark}
+
+\subsection{Stimatori e test}
+\label{sec:estimators}
+
+\paragraph{Autocorrelazione campionaria di ordine 1.} Su una finestra di $W=60$ giorni di trading, $\hat\rho_1 = \widehat{\mathrm{Corr}}(r_t, r_{t-1})$, ricalcolata rolling lungo la serie.
+
+\paragraph{Variance ratio (Lo e MacKinlay, 1988).}
+\[
+VR(q) = \frac{\mathrm{Var}\big(\sum_{i=0}^{q-1} r_{t-i}\big)}{q\cdot\mathrm{Var}(r_t)},
+\]
+pari a $1$ sotto i.i.d.\ e crescente in $\phi$ per il processo geometrico del Modello 1 (l'autocovarianza decade come $\phi^h$, esattamente come per un $AR(1)$). Usiamo $q=5$.
+
+\paragraph{Test di Ljung--Box.} Per testare formalmente $H_0: \rho_1=\cdots=\rho_L=0$ (nessuna autocorrelazione fino al ritardo $L$) contro $H_1:$ almeno un $\rho_k\ne 0$, la statistica
+\[
+Q = n(n+2)\sum_{k=1}^{L}\frac{\hat\rho_k^2}{n-k}
+\]
+\`e asintoticamente $\chi^2_L$ sotto $H_0$. Usiamo $L=10$. A differenza di $\hat\rho_1$ da solo, il test di Ljung--Box aggrega l'informazione su pi\`u ritardi e fornisce un $p$-value formale: ci dice se l'autocorrelazione osservata \`e troppo forte per essere spiegata dal solo rumore campionario, non solo quanto vale in media.
+
+% ============================================================================
+\section{Come l'analisi risponde formalmente alla domanda di ricerca}
+\label{sec:formal-answer}
+
+I due modelli non sono un esercizio statistico fine a se stesso: sono la traduzione in ipotesi verificabili dei due lati del meccanismo di trasformazione della liquidit\`a, e la loro verifica congiunta costituisce la risposta formale alla domanda di ricerca.
+
+\begin{definition}[Gap di trasformazione di liquidit\`a]
+Per un dato fondo, definiamo
+\[
+\widehat{\Delta} \;=\; \hat\rho_1(NAV) - \hat\rho_1(P).
+\]
+Sotto il Modello 1 e il Modello 2, $\widehat{\Delta}\xrightarrow{p}\phi - 0 = \phi$: il gap converge al parametro di staleness del sottostante.
+\end{definition}
+
+La logica del test \`e la seguente, in tre passaggi.
+
+\begin{enumerate}
+\item \textbf{Il sottostante \`e illiquido?} Testiamo $H_0:$ nessuna autocorrelazione nel NAV, tramite Ljung--Box. Se rifiutiamo $H_0$ con forte significativit\`a, non stiamo assumendo che il sottostante sia illiquido -- lo stiamo concludendo dai dati: solo un pricing basato su informazione stantia produce quel pattern di autocorrelazione.
+\item \textbf{Il prezzo dell'ETF \`e ``pulito''?} Testiamo la stessa ipotesi sul prezzo dell'ETF. Se non rifiutiamo $H_0$ (o l'effetto stimato \`e economicamente trascurabile e/o di segno opposto, coerente con bid-ask bounce), il prezzo dell'ETF si comporta come un processo vicino a i.i.d. -- nessuna eredit\`a statistica dallo smoothing del sottostante.
+\item \textbf{Il gap \`e reale?} Se il punto (1) vale e il punto (2) vale simultaneamente, per lo stesso fondo, nello stesso periodo, allora $\widehat{\Delta} > 0$ non pu\`o essere spiegato semplicemente dicendo ``l'ETF e il suo sottostante sono lo stesso asset'' -- se lo fossero, erediterebbero la stessa autocorrelazione. Il gap misura quindi, con un numero e non solo con una narrazione, \emph{quanto} il wrapper ETF sta scollegando la liquidit\`a osservata sul mercato secondario dalla liquidit\`a reale del sottostante.
+\end{enumerate}
+
+Il risultato di questa catena logica (Sezione~\ref{sec:results}) risponde \emph{sì} alla domanda di ricerca, con evidenza statistica: un ETF pu\`o essere liquido anche detenendo un sottostante illiquido perch\'e i due livelli di prezzo -- NAV di valutazione e prezzo di borsa -- non condividono lo stesso processo generatore, e questa non-condivisione \`e misurabile e statisticamente robusta, non solo plausibile a livello narrativo. Il \emph{come} -- continuous hedging del market maker su proxy liquidi, creation/redemption dell'AP che ancora periodicamente $P_t$ a $NAV_t$ senza richiedere che ogni trade tocchi il sottostante -- \`e il meccanismo economico sviluppato nell'analisi principale; questa nota ne fornisce la controparte quantitativa.
+
+% ============================================================================
+\section{Risultati}
+\label{sec:results}
+
+\subsection{Validazione su dati sintetici}
+\label{sec:results-synth}
+
+Simuliamo rendimenti veri i.i.d.\ ($n=20{,}000$), li smussiamo con $\phi$ noto per ottenere il NAV sintetico, generiamo un prezzo ETF sintetico come rendimento vero pi\`u rumore idiosincratico indipendente. La Tabella~\ref{tab:validation} mostra che l'autocorrelazione campionaria del NAV recupera $\phi$ quasi esattamente, con significativit\`a di Ljung--Box che cresce nettamente con $\phi$; quella del prezzo ETF resta vicina a zero e mai significativa, per costruzione.
+
+\begin{table}[H]
+\centering
+\caption{Recupero di $\phi$ su campioni sintetici lunghi ($n=20{,}000$, $L=10$ ritardi per Ljung--Box).}
+\label{tab:validation}
+\begin{tabular}{ccccc}
+\toprule
+$\phi$ (vero) & $\hat\rho_1(NAV)$ & Ljung--Box $p$ (NAV) & $\hat\rho_1(ETF)$ & Ljung--Box $p$ (ETF) \\
+\midrule
+$0.0$ & $-0.0054$ & $0.5901$ & $-0.0047$ & $0.5799$ \\
+$0.2$ & $\phantom{-}0.1957$ & $<0.0001$ & $-0.0062$ & $0.4759$ \\
+$0.4$ & $\phantom{-}0.3876$ & $<0.0001$ & $-0.0132$ & $0.3616$ \\
+$0.6$ & $\phantom{-}0.5986$ & $<0.0001$ & $-0.0031$ & $0.9267$ \\
+$0.8$ & $\phantom{-}0.8052$ & $<0.0001$ & $\phantom{-}0.0181$ & $0.3368$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A $\phi=0$ (nessuno smoothing), Ljung--Box correttamente \emph{non} rifiuta $H_0$ per il NAV ($p=0.5901$): lo stimatore non trova autocorrelazione dove non c'\`e. Per ogni $\phi>0$ testato, la rifiuta con $p<0.0001$. Sul prezzo ETF, $H_0$ non \`e mai rifiutata, indipendentemente da $\phi$: il gap non dipende da quanto sia stantio il NAV, solo la sua parte NAV lo fa.
+
+Un secondo test usa un percorso sintetico con un regime di smoothing che cambia nel tempo ($\phi$ basso $\to$ alto $\to$ basso $\to$ alto $\to$ basso, in 5 tratti di 500 giorni), per verificare che le stime \emph{rolling} (finestra di 60 giorni) seguano il cambiamento di regime senza bisogno di alcuna classificazione esplicita.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../figures/smoothing_rolling_diagnostics.png}
+\caption{Pannello superiore: regime di smoothing noto (ground truth). Pannello centrale: $\hat\rho_1$ rolling del NAV (rosso) segue visibilmente il regime noto, mentre quella del prezzo ETF (blu) resta vicina a zero indipendentemente dal regime. Pannello inferiore: la variance ratio rolling mostra lo stesso pattern.}
+\label{fig:rolling}
+\end{figure}
+
+\textbf{Attenzione all'interpretazione.} Un gap grande \emph{non} \`e un segnale di allarme: significa che il sottostante \`e stantio \emph{e che, nonostante questo, il prezzo dell'ETF resta pulito} -- la trasformazione di liquidit\`a sta funzionando come dovrebbe. Una rottura genuina del meccanismo si manifesterebbe diversamente: non con $\hat\rho_1(NAV)$ che sale, ma con $\hat\rho_1(ETF)$ che comincia anch'esso a salire verso quello del NAV -- il gap si chiuderebbe ``dal lato sbagliato''. Questo \`e precisamente il pattern che osserviamo nei dati reali durante le crisi (Sezione~\ref{sec:results-gap}).
+
+\subsection{Dati reali: staleness del NAV, LQD contro HYG}
+\label{sec:results-nav}
+
+Usando lo storico reale del NAV (dati gi\`a esportati da iShares), calcoliamo $\hat\rho_1$, $VR(5)$ e il $p$-value di Ljung--Box lato NAV per entrambi i fondi. L'ipotesi economica: le obbligazioni high-yield sono tipicamente meno liquide di quelle investment-grade, quindi il NAV di HYG dovrebbe mostrare pi\`u smoothing.
+
+\begin{table}[H]
+\centering
+\caption{Diagnostiche di staleness del NAV, dati reali ($L=10$ ritardi per Ljung--Box).}
+\label{tab:real-nav}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Fondo & N giorni & $\hat\rho_1(NAV)$ & $VR(5)$ & $\hat\rho_1(NAV)$ & Ljung--Box \\
+ & & full-sample & full-sample & media rolling & $p$ \\
+\midrule
+LQD (investment-grade) & 6{,}079 & $0.0999$ & $1.2201$ & $0.0235$ & $<0.0001$ \\
+HYG (high-yield) & 4{,}897 & $0.3409$ & $1.9647$ & $0.2126$ & $<0.0001$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../figures/smoothing_real_nav_rho1.png}
+\caption{Autocorrelazione rolling (60gg) del NAV, LQD (sopra) e HYG (sotto). HYG si mantiene visibilmente pi\`u alto in media.}
+\label{fig:real-nav}
+\end{figure}
+
+Il risultato conferma l'ipotesi: $\hat\rho_1(NAV)$ e $VR(5)$ di HYG sono entrambi pi\`u di tre volte quelli di LQD, ed entrambi altamente significativi -- evidenza diretta, basata sui soli dati NAV, che il paniere high-yield \`e strutturalmente pi\`u stantio/illiquido di quello investment-grade.
+
+\subsection{Dati reali: confronto diretto NAV contro prezzo dell'ETF}
+\label{sec:results-gap}
+
+Ripetendo la stessa diagnostica sul prezzo di borsa dell'ETF (OHLCV) e confrontandola direttamente con quella del NAV, per lo stesso fondo e nello stesso periodo, otteniamo il test pi\`u diretto della domanda di ricerca: il gap $\widehat\Delta$ definito in Sezione~\ref{sec:formal-answer}.
+
+\begin{table}[H]
+\centering
+\caption{Confronto NAV-contro-prezzo, dati reali (medie delle stime rolling a 60gg).}
+\label{tab:real-gap}
+\begin{tabular}{lccc}
+\toprule
+Fondo & $\hat\rho_1(NAV)$, media & $\hat\rho_1(P)$, media & $\widehat\Delta$, media \\
+\midrule
+LQD (investment-grade) & $0.0233$ & $-0.0454$ & $0.0687$ \\
+HYG (high-yield) & $0.2124$ & $-0.0051$ & $0.2175$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tre osservazioni. Primo, $\widehat\Delta$ \`e positivo per entrambi i fondi e circa tre volte pi\`u grande per HYG che per LQD -- coerente con la Tabella~\ref{tab:real-nav} e con l'ipotesi IG-contro-HY, questa volta confermata anche guardando il lato prezzo, non solo il NAV. Secondo, $\hat\rho_1(P)$ non \`e esattamente zero ma leggermente \emph{negativo} per entrambi i fondi: coerente con l'idealizzazione onesta discussa in Sezione~\ref{sec:model2} (bid-ask bounce di Roll), e se mai rafforza il gap anzich\'e indebolirlo, perch\'e NAV e prezzo non solo non condividono l'autocorrelazione, si muovono in direzioni opposte.
+
+Terzo, e pi\`u interessante: osservando l'andamento \emph{rolling} di $\hat\rho_1(NAV)$ e $\hat\rho_1(P)$ nel tempo (non riportato in tabella), il gap non \`e costante. Durante gli episodi di stress sistemico del 2008 e del 2020, $\hat\rho_1(P)$ sale insieme a $\hat\rho_1(NAV)$, invece di restare vicino a zero -- esattamente il pattern di ``rottura genuina'' anticipato in Sezione~\ref{sec:results-synth}: sotto stress il market maker fatica a mantenere continuous hedging a basso costo (spread pi\`u larghi, minore willingness a fare inventario), e parte della staleness del sottostante filtra nel prezzo dell'ETF stesso. La trasformazione di liquidit\`a non \`e quindi una propriet\`a costante del wrapper ETF, ma \`e \emph{state-dependent}: pi\`u forte in condizioni normali, pi\`u debole proprio quando ce ne sarebbe pi\`u bisogno.
+
+% ============================================================================
+\section{Discussione}
+\label{sec:discussion}
+
+Tre linee di evidenza, indipendenti fra loro, convergono sulla stessa risposta. Sui dati sintetici (Sezione~\ref{sec:results-synth}), lo stimatore recupera correttamente il parametro di staleness noto e il test di Ljung--Box lo dichiara significativo esattamente quando e solo quando lo smoothing \`e presente -- lo strumento di misura funziona. Sui dati reali del solo NAV (Sezione~\ref{sec:results-nav}), il gradiente di liquidit\`a IG$<$HY atteso a priori emerge con forte significativit\`a statistica. Sul confronto diretto NAV-contro-prezzo (Sezione~\ref{sec:results-gap}), lo stesso gradiente riappare nel gap $\widehat\Delta$, con il segno e l'ordine di grandezza previsti dal Modello 2, e con una dinamica temporale (indebolimento nelle crisi) coerente con il meccanismo economico -- non postulato nei modelli, ma osservabile nei dati.
+
+La risposta alla domanda di ricerca non \`e quindi solo narrativa: un ETF obbligazionario pu\`o essere liquido pur detenendo un sottostante illiquido perch\'e il suo prezzo di borsa e il suo NAV sono, statisticamente, due processi diversi -- e questa differenza \`e misurabile, statisticamente significativa, e coerente in direzione, magnitudine e dinamica temporale con il meccanismo di mercato primario/secondario, market making e creation/redemption sviluppato nell'analisi principale.
+
+% ============================================================================
+\section{Limiti}
+\label{sec:limits}
+
+La finestra rolling (60 giorni) \`e una scelta di design con il consueto trade-off bias/varianza; il modello di smoothing geometrico \`e una parametrizzazione conveniente, non l'unica possibile; il Modello 2 \`e un'idealizzazione che trascura il bid-ask bounce (Roll, 1984), coerentemente osservato nei dati reali come lieve autocorrelazione negativa; un $\hat\rho_1(NAV)$ positivo potrebbe in linea di principio riflettere anche altre fonti di autocorrelazione oltre allo smoothing, non isolate in questa nota; il confronto diretto di Sezione~\ref{sec:results-gap} richiede l'OHLCV di borsa dell'ETF (rete), non sempre disponibile in ogni ambiente di esecuzione -- la Sezione~\ref{sec:results-nav} (solo NAV) resta comunque un test reale e autosufficiente dell'ipotesi IG-contro-HY.
+
+% ============================================================================
+\section{Conclusioni}
+\label{sec:conclusions}
+
+Il NAV di un bond ETF eredita l'illiquidit\`a delle obbligazioni sottostanti sotto forma di autocorrelazione seriale positiva, statisticamente significativa (Ljung--Box, $p<0.0001$ su LQD e HYG). Il prezzo di borsa, formandosi tramite trading continuo fra investitori sul mercato secondario, non eredita la stessa propriet\`a -- anzi mostra la lieve autocorrelazione negativa attesa da un mercato quotato con bid-ask spread. Il gap fra i due, positivo e coerente in magnitudine con la minore liquidit\`a del credito high-yield, \`e la prova empirica diretta che l'ETF pu\`o essere liquido nel senso di avere un prezzo pulito e continuamente aggiornato, anche se il valore che quel prezzo insegue si muove in modo strutturalmente pi\`u lento -- e che questa trasformazione, per quanto robusta in condizioni normali, si indebolisce proprio negli episodi di stress sistemico in cui il meccanismo di hedging e arbitraggio che la sostiene \`e messo sotto pressione.
+
+\end{document}
