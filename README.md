@@ -6,37 +6,16 @@ Satellite/complementary analysis for the **Advanced Fixed Income and Credit** gr
 
 This notebook does not describe the institutional mechanism (that is the main HMM-based analysis, covering the primary market, the secondary market, market-maker continuous hedging, and AP creation/redemption) — it tests, statistically, whether that mechanism leaves a measurable fingerprint in price data.
 
-## Repository layout
+## Files
 
-```
-satellite-analysis/
-├── README.md
-├── requirements.txt
-│
-├── data/                                   # Bundled NAV history (iShares exports)
-│   ├── lqd_nav_history.csv
-│   └── hyg_nav_history.csv
-│
-├── notebooks/                              # Builder scripts + built/executed notebooks
-│   ├── build_notebook_smoothing.py             # Italian builder
-│   ├── build_notebook_smoothing_en.py           # English builder
-│   ├── etf_liquidity_transformation.ipynb       # Built notebook (Italian)
-│   └── etf_liquidity_transformation_en.ipynb    # Built notebook (English)
-│
-├── reports/                                # Written reports (LaTeX source + compiled PDF)
-│   ├── liquidity_transformation_report.tex/.pdf       # Detailed report (Italian)
-│   ├── liquidity_transformation_report_en.tex/.pdf    # Detailed report (English)
-│   └── liquidity_transformation_summary.tex/.pdf      # Short illustrated summary (Italian)
-│
-└── figures/                                # Figures embedded in the notebooks and the reports
-    ├── smoothing_hmm_synthetic.png
-    ├── smoothing_rolling_diagnostics(_en).png
-    └── smoothing_real_nav_rho1(_en).png
-```
-
-`notebooks/`, `reports/`, and `data/`/`figures/` are siblings on purpose: every relative path inside the builder scripts and the `.tex` files (`../data/...`, `../figures/...`) assumes this exact layout, and both `jupyter execute`/`nbconvert` and `pdflatex` run with the working directory set to the file being processed — so as long as you invoke them from inside `notebooks/` or `reports/` respectively (as shown below), the relative paths resolve correctly.
-
-The notebook is **generated, not hand-edited**: to change its content, edit the corresponding `build_notebook_smoothing*.py` script and rebuild — editing the `.ipynb` JSON directly will be overwritten on the next build.
+| File | Description |
+|---|---|
+| `etf_liquidity_transformation_en.ipynb` | Built and executed notebook — the full analysis, ready to read or re-run |
+| `hyg_nav_history.csv`, `lqd_nav_history.csv` | Historical NAV data (iShares exports), required by Section 5 |
+| `liquidity_transformation_report_en.tex` / `.pdf` | Detailed written report: full derivations, methodology, and results tables |
+| `smoothing_rolling_diagnostics_en.png` | Figure: rolling autocorrelation on synthetic data with a time-varying regime |
+| `smoothing_real_nav_rho1_en.png` | Figure: rolling $\hat\rho_1$(NAV) on real LQD/HYG data |
+| `requirements.txt` | Python dependencies |
 
 ## What's in the notebook
 
@@ -55,39 +34,28 @@ The notebook is **generated, not hand-edited**: to change its content, edit the 
 
 ```bash
 pip install -r requirements.txt
-# yfinance is only needed for Section 6 with DEMO = False
 ```
 
 ## How to run
 
-```bash
-cd notebooks
-
-# Build
-python build_notebook_smoothing.py etf_liquidity_transformation.ipynb
-
-# Execute (either use Jupyter directly, or:)
-jupyter execute --inplace etf_liquidity_transformation.ipynb
-# equivalently: jupyter nbconvert --to notebook --execute --inplace etf_liquidity_transformation.ipynb
-
-# English version
-python build_notebook_smoothing_en.py etf_liquidity_transformation_en.ipynb
-jupyter execute --inplace etf_liquidity_transformation_en.ipynb
-```
-
-By default `DEMO = True` in the configuration cell (Section 1): everything runs offline, using only the bundled NAV CSVs in `../data/`. Set `DEMO = False` and re-run to also execute Section 6, which needs network access and `yfinance` to download LQD/HYG OHLCV — `yf.download(ticker, period="max", ...)` is used deliberately (not the default 1-month window), since the 60-day rolling window needs the full price history to produce non-NaN estimates.
-
-Figures are saved to `../figures/` (i.e. the `figures/` folder at the repository root, one level above `notebooks/`): `smoothing_rolling_diagnostics.png`, `smoothing_real_nav_rho1.png`, and (with `DEMO = False`) `smoothing_real_gap_<ticker>.png`. The English builder saves the same figures with an `_en` suffix, so running both language versions doesn't overwrite either set.
-
-## Reports
+The notebook already contains the full executed output — open it directly to read the analysis. To re-run it from scratch:
 
 ```bash
-cd reports
-pdflatex liquidity_transformation_report.tex
-pdflatex liquidity_transformation_report.tex   # second pass, resolves cross-references
+jupyter nbconvert --to notebook --execute --inplace etf_liquidity_transformation_en.ipynb
 ```
 
-Each report's `\includegraphics` calls point to `../figures/...`, so run `pdflatex` from inside `reports/` (as above) and make sure the notebook has been built/executed at least once first, so the figures actually exist.
+By default `DEMO = True` in the configuration cell (Section 1): everything runs offline, using only the bundled NAV CSVs in this same folder. Set `DEMO = False` and re-run to also execute Section 6, which needs network access and `yfinance` to download LQD/HYG OHLCV — `yf.download(ticker, period="max", ...)` is used deliberately (not the default 1-month window), since the 60-day rolling window needs the full price history to produce non-NaN estimates.
+
+Figures are (re)saved directly in this folder: `smoothing_rolling_diagnostics_en.png`, `smoothing_real_nav_rho1_en.png`, and (with `DEMO = False`) `smoothing_real_gap_<ticker>_en.png`.
+
+## Report
+
+```bash
+pdflatex liquidity_transformation_report_en.tex
+pdflatex liquidity_transformation_report_en.tex   # second pass, resolves cross-references
+```
+
+The report's figures are the same PNGs produced by the notebook, so run the notebook at least once first if you need to regenerate them.
 
 ## Key results (real data)
 
@@ -97,7 +65,3 @@ Each report's `\includegraphics` calls point to `../figures/...`, so run `pdflat
 | HYG (high-yield) | 0.3409 | 1.9647 | < 0.0001 |
 
 With `DEMO = False` (full NAV-vs-price comparison, rolling means): LQD gap $\widehat\Delta = 0.0687$, HYG gap $\widehat\Delta = 0.2175$ — roughly 3x larger for the less liquid fund, consistent with the research hypothesis. The gap narrows during 2008 and 2020, consistent with the liquidity-transformation mechanism weakening under systemic stress.
-
-## Related files
-
-A more detailed write-up of this same analysis, with full derivations and results tables, is available as `reports/liquidity_transformation_report.tex`/`.pdf` (Italian) and `reports/liquidity_transformation_report_en.tex`/`.pdf` (English); a shorter illustrated version is `reports/liquidity_transformation_summary.tex`/`.pdf`.
